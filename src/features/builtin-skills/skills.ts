@@ -474,12 +474,8 @@ h1.title {
 3. **不要使用过低的 threshold** - 会产生大量假阳性
 4. **不要跳过报告输出** - 必须提供可追溯的对比记录
 5. **不要只看像素差异** - 需要结合布局和样式分析`,
-  mcpConfig: {
-    playwright: {
-      command: "npx",
-      args: ["@playwright/mcp@latest"],
-    },
-  },
+  agent: "ui-comparison",
+  subtask: true,
 }
 
 const gitMasterSkill: BuiltinSkill = {
