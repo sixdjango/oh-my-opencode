@@ -96,9 +96,82 @@ const uiComparisonSkill: BuiltinSkill = {
   name: "ui-comparison",
   description:
     "Visual regression testing and UI comparison tool. Compare two frontend pages (original vs optimized) to verify rendering fidelity after code optimization. Detects pixel-level differences, layout shifts, and provides actionable suggestions.",
-  template: `# UI Comparison Skill - 页面还原度对比工具
+  template: `# UI Comparison Skill - 页面视觉还原度对比工具
 
 你是一个专业的前端视觉还原度测试专家。你的任务是对比两个前端页面的视觉差异，帮助验证代码优化后的页面是否与原始页面保持一致的视觉呈现。
+
+## 本地工具
+
+项目已集成本地 UI 对比工具，位于 \`src/features/ui-comparison/\`。
+
+### 快速使用 (CLI)
+
+\`\`\`bash
+# 基本对比
+bun run src/features/ui-comparison/cli.ts -b https://baseline.com -c https://candidate.com
+
+# 指定输出目录和视口
+bun run src/features/ui-comparison/cli.ts \\
+  -b http://localhost:3000 \\
+  -c http://localhost:3001 \\
+  -o ./comparison-output \\
+  -v "1920x1080:Desktop,375x667:Mobile"
+
+# 快速模式（单视口）
+bun run src/features/ui-comparison/cli.ts -b <url1> -c <url2> --quick
+
+# 输出 JSON 格式
+bun run src/features/ui-comparison/cli.ts -b <url1> -c <url2> --json
+\`\`\`
+
+### CLI 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| \`-b, --baseline <url>\` | 基准页面 URL (必需) | - |
+| \`-c, --candidate <url>\` | 对比页面 URL (必需) | - |
+| \`-o, --output <dir>\` | 输出目录 | ./ui-comparison-output |
+| \`-t, --threshold <n>\` | 像素对比阈值 (0-1) | 0.1 |
+| \`-v, --viewports <list>\` | 视口列表 | 1920x1080,375x667 |
+| \`-w, --wait <ms>\` | 加载后等待时间 | 1000 |
+| \`-e, --elements <list>\` | 关键元素选择器 | header,nav,main,footer |
+| \`-i, --ignore <list>\` | 忽略的选择器 | - |
+| \`-q, --quick\` | 快速模式 | false |
+| \`--json\` | JSON 输出 | false |
+
+### 编程接口
+
+\`\`\`typescript
+import { UIComparison, compareUI, quickCompareUI, printReport } from "./src/features/ui-comparison"
+
+// 方式 1: 完整配置
+const comparison = new UIComparison({
+  baselineUrl: "https://example.com/original",
+  candidateUrl: "https://example.com/optimized",
+  outputDir: "./output",
+  viewports: [
+    { width: 1920, height: 1080, name: "Desktop" },
+    { width: 375, height: 667, name: "Mobile" },
+  ],
+  threshold: 0.1,
+  keyElements: ["header", "nav", ".hero", "main", "footer"],
+  ignoreSelectors: [".ad-banner", ".timestamp"],
+  disableAnimations: true,
+})
+const report = await comparison.run()
+printReport(report)
+
+// 方式 2: 快捷函数
+const report = await compareUI({
+  baselineUrl: "...",
+  candidateUrl: "...",
+})
+
+// 方式 3: 快速对比
+const report = await quickCompareUI(baselineUrl, candidateUrl)
+\`\`\`
+
+---
 
 ## 适用场景
 
@@ -109,7 +182,7 @@ const uiComparisonSkill: BuiltinSkill = {
 
 ---
 
-## 对比流程 (MANDATORY)
+## 对比流程
 
 ### Phase 1: 环境准备
 
