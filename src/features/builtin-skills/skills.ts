@@ -92,6 +92,392 @@ Match implementation complexity to aesthetic vision:
 Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. You are capable of extraordinary creative work—don't hold back.`,
 }
 
+const uiComparisonSkill: BuiltinSkill = {
+  name: "ui-comparison",
+  description:
+    "Visual regression testing and UI comparison tool. Compare two frontend pages (original vs optimized) to verify rendering fidelity after code optimization. Detects pixel-level differences, layout shifts, and provides actionable suggestions.",
+  template: `# UI Comparison Skill - 页面视觉还原度对比工具
+
+你是一个专业的前端视觉还原度测试专家。你的任务是对比两个前端页面的视觉差异，帮助验证代码优化后的页面是否与原始页面保持一致的视觉呈现。
+
+## 本地工具
+
+项目已集成本地 UI 对比工具，位于 \`src/features/ui-comparison/\`。
+
+### 快速使用 (CLI)
+
+\`\`\`bash
+# 基本对比
+bun run src/features/ui-comparison/cli.ts -b https://baseline.com -c https://candidate.com
+
+# 指定输出目录和视口
+bun run src/features/ui-comparison/cli.ts \\
+  -b http://localhost:3000 \\
+  -c http://localhost:3001 \\
+  -o ./comparison-output \\
+  -v "1920x1080:Desktop,375x667:Mobile"
+
+# 快速模式（单视口）
+bun run src/features/ui-comparison/cli.ts -b <url1> -c <url2> --quick
+
+# 输出 JSON 格式
+bun run src/features/ui-comparison/cli.ts -b <url1> -c <url2> --json
+\`\`\`
+
+### CLI 参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| \`-b, --baseline <url>\` | 基准页面 URL (必需) | - |
+| \`-c, --candidate <url>\` | 对比页面 URL (必需) | - |
+| \`-o, --output <dir>\` | 输出目录 | ./ui-comparison-output |
+| \`-t, --threshold <n>\` | 像素对比阈值 (0-1) | 0.1 |
+| \`-v, --viewports <list>\` | 视口列表 | 1920x1080,375x667 |
+| \`-w, --wait <ms>\` | 加载后等待时间 | 1000 |
+| \`-e, --elements <list>\` | 关键元素选择器 | header,nav,main,footer |
+| \`-i, --ignore <list>\` | 忽略的选择器 | - |
+| \`-q, --quick\` | 快速模式 | false |
+| \`--json\` | JSON 输出 | false |
+
+### 编程接口
+
+\`\`\`typescript
+import { UIComparison, compareUI, quickCompareUI, printReport } from "./src/features/ui-comparison"
+
+// 方式 1: 完整配置
+const comparison = new UIComparison({
+  baselineUrl: "https://example.com/original",
+  candidateUrl: "https://example.com/optimized",
+  outputDir: "./output",
+  viewports: [
+    { width: 1920, height: 1080, name: "Desktop" },
+    { width: 375, height: 667, name: "Mobile" },
+  ],
+  threshold: 0.1,
+  keyElements: ["header", "nav", ".hero", "main", "footer"],
+  ignoreSelectors: [".ad-banner", ".timestamp"],
+  disableAnimations: true,
+})
+const report = await comparison.run()
+printReport(report)
+
+// 方式 2: 快捷函数
+const report = await compareUI({
+  baselineUrl: "...",
+  candidateUrl: "...",
+})
+
+// 方式 3: 快速对比
+const report = await quickCompareUI(baselineUrl, candidateUrl)
+\`\`\`
+
+---
+
+## 适用场景
+
+1. **代码重构后验证**: 优化 DOM 层级、清理冗余代码后，确保视觉还原度不变
+2. **大模型代码优化**: AI 优化的代码可能改变了渲染结果，需要验证
+3. **CSS 重构**: 修改样式结构后的视觉一致性检查
+4. **组件迁移**: 从旧组件迁移到新组件的视觉对比
+
+---
+
+## 对比流程
+
+### Phase 1: 环境准备
+
+\`\`\`
+1. 确认两个页面的 URL 或本地路径
+   - 原始页面 (baseline): 视觉标准，代码可能较乱
+   - 优化页面 (candidate): 代码优化后，需要验证还原度
+
+2. 确认对比参数:
+   - 视口尺寸 (viewport): 默认 1920x1080, 也要测试 1366x768, 375x667
+   - 等待策略: networkidle, load, domcontentloaded
+   - 是否需要登录或特殊操作
+   - 是否有动画需要等待稳定
+\`\`\`
+
+### Phase 2: 截图采集
+
+使用 Playwright MCP 执行以下操作:
+
+\`\`\`typescript
+// 1. 打开原始页面 (baseline)
+await browser_navigate({ url: baselineUrl })
+await browser_wait_for({ state: "networkidle" })
+// 等待动画完成
+await browser_evaluate({ script: "await new Promise(r => setTimeout(r, 1000))" })
+await browser_screenshot({ path: "baseline.png", fullPage: true })
+
+// 2. 打开优化页面 (candidate)
+await browser_navigate({ url: candidateUrl })
+await browser_wait_for({ state: "networkidle" })
+await browser_evaluate({ script: "await new Promise(r => setTimeout(r, 1000))" })
+await browser_screenshot({ path: "candidate.png", fullPage: true })
+\`\`\`
+
+### Phase 3: 视觉对比分析
+
+#### 3.1 像素级对比
+
+使用 \`pixelmatch\` 或类似工具进行像素对比:
+
+\`\`\`typescript
+// 伪代码 - 实际执行时通过 Playwright evaluate
+const diffPixels = pixelmatch(
+  baselineData, candidateData, diffData,
+  width, height,
+  { threshold: 0.1 }  // 允许 10% 的颜色差异
+)
+
+const diffPercentage = (diffPixels / totalPixels) * 100
+\`\`\`
+
+**差异等级判断:**
+| 差异比例 | 等级 | 建议 |
+|----------|------|------|
+| 0% - 0.1% | ✅ 完美 | 无需修改 |
+| 0.1% - 1% | ⚠️ 轻微 | 检查是否为抗锯齿差异 |
+| 1% - 5% | ⚠️ 中等 | 需要人工审核具体差异区域 |
+| 5% - 15% | ❌ 明显 | 必须修复，存在视觉回归 |
+| > 15% | ❌ 严重 | 重大问题，需要重新检查优化代码 |
+
+#### 3.2 布局对比
+
+检查关键元素的位置和尺寸:
+
+\`\`\`typescript
+// 获取关键元素的边界框
+const elements = ['header', 'nav', 'main', 'footer', '.hero', '.sidebar']
+for (const selector of elements) {
+  const baseline = await baselinePage.locator(selector).boundingBox()
+  const candidate = await candidatePage.locator(selector).boundingBox()
+
+  // 对比位置差异
+  const xDiff = Math.abs(baseline.x - candidate.x)
+  const yDiff = Math.abs(baseline.y - candidate.y)
+  const widthDiff = Math.abs(baseline.width - candidate.width)
+  const heightDiff = Math.abs(baseline.height - candidate.height)
+}
+\`\`\`
+
+#### 3.3 样式对比
+
+检查关键 CSS 属性:
+
+\`\`\`typescript
+const criticalStyles = [
+  'font-family', 'font-size', 'font-weight', 'color',
+  'background-color', 'padding', 'margin', 'border',
+  'display', 'flex-direction', 'align-items', 'justify-content',
+  'position', 'z-index', 'opacity', 'transform'
+]
+
+for (const selector of keySelectors) {
+  for (const prop of criticalStyles) {
+    const baselineValue = await baselinePage.evaluate(
+      ([sel, p]) => getComputedStyle(document.querySelector(sel))[p],
+      [selector, prop]
+    )
+    const candidateValue = await candidatePage.evaluate(...)
+
+    if (baselineValue !== candidateValue) {
+      report.styleDiffs.push({ selector, prop, baseline: baselineValue, candidate: candidateValue })
+    }
+  }
+}
+\`\`\`
+
+### Phase 4: 响应式对比
+
+在多个视口尺寸下进行对比:
+
+\`\`\`
+VIEWPORT_SIZES:
+  - Desktop: 1920x1080, 1440x900, 1366x768
+  - Tablet: 1024x768, 768x1024
+  - Mobile: 375x667, 414x896, 390x844
+\`\`\`
+
+### Phase 5: 交互状态对比
+
+检查关键交互状态:
+
+\`\`\`
+INTERACTION_STATES:
+  - Hover: 按钮、链接、卡片的 hover 效果
+  - Focus: 表单元素的 focus 状态
+  - Active: 点击状态
+  - Disabled: 禁用状态
+  - Loading: 加载状态（如有）
+\`\`\`
+
+---
+
+## 输出报告格式 (MANDATORY)
+
+\`\`\`
+╔════════════════════════════════════════════════════════════╗
+║               UI COMPARISON REPORT                         ║
+╠════════════════════════════════════════════════════════════╣
+║ Baseline URL:  https://example.com/original                ║
+║ Candidate URL: https://example.com/optimized               ║
+║ Test Time:     2024-XX-XX HH:MM:SS                         ║
+╚════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────┐
+│ OVERALL RESULT: [PASS/WARN/FAIL]    │
+│ Visual Match Score: XX.XX%          │
+│ Pixel Difference: X.XX%             │
+└─────────────────────────────────────┘
+
+📊 VIEWPORT BREAKDOWN
+─────────────────────
+| Viewport    | Match % | Status | Issues |
+|-------------|---------|--------|--------|
+| 1920x1080   | 99.5%   | ✅     | -      |
+| 1366x768    | 98.2%   | ⚠️     | 2      |
+| 375x667     | 95.1%   | ❌     | 5      |
+
+🔍 DETECTED DIFFERENCES
+───────────────────────
+
+[CRITICAL] Layout Shift
+  - Element: .hero-section
+  - Issue: 垂直位置偏移 15px
+  - Baseline: top: 80px
+  - Candidate: top: 95px
+  - Suggestion: 检查 margin/padding 计算，可能是容器 box-sizing 改变
+
+[WARNING] Font Rendering
+  - Element: h1.title
+  - Issue: 字重差异
+  - Baseline: font-weight: 600
+  - Candidate: font-weight: 700
+  - Suggestion: 检查 font-weight 继承链，确认是否使用了正确的字体变体
+
+[INFO] Color Variation
+  - Element: .btn-primary
+  - Issue: 背景色轻微差异（可能是抗锯齿）
+  - Baseline: #1a73e8
+  - Candidate: #1a74e9
+  - Suggestion: 差异在可接受范围内，无需修复
+
+📸 SCREENSHOT COMPARISON
+────────────────────────
+- Baseline:  ./screenshots/baseline-1920x1080.png
+- Candidate: ./screenshots/candidate-1920x1080.png
+- Diff:      ./screenshots/diff-1920x1080.png
+
+💡 OPTIMIZATION SUGGESTIONS
+───────────────────────────
+
+1. [HIGH PRIORITY] 修复移动端布局问题
+   - 问题: 375x667 视口下导航栏溢出
+   - 建议: 检查 flex-wrap 属性，添加 overflow-x: hidden
+   - 相关代码: src/components/Header.tsx:45-60
+
+2. [MEDIUM] 统一字体加载策略
+   - 问题: 字体渲染差异可能来自加载顺序
+   - 建议: 使用 font-display: swap 并预加载关键字体
+
+3. [LOW] 优化过渡动画
+   - 问题: hover 状态的过渡时间不一致
+   - 建议: 创建统一的 CSS 变量 --transition-default
+
+🛠️ AUTOMATED FIX SUGGESTIONS
+─────────────────────────────
+
+// 建议的代码修复 (如果可以自动生成)
+// 1. 修复 .hero-section 布局
+.hero-section {
+-  margin-top: 0;
++  margin-top: 15px; /* 与原始保持一致 */
+}
+
+// 2. 修复字重
+h1.title {
+-  font-weight: 700;
++  font-weight: 600;
+}
+\`\`\`
+
+---
+
+## 常见问题及解决方案
+
+### Q1: 抗锯齿导致的假阳性
+**问题**: 字体和边缘渲染在不同环境下略有差异
+**解决**:
+- 使用更高的 threshold (0.2-0.3)
+- 排除已知的字体渲染区域
+- 使用 structural similarity (SSIM) 而非纯像素对比
+
+### Q2: 动画导致的不一致
+**问题**: 截图时机不同导致动画帧不同
+**解决**:
+- 增加等待时间
+- 禁用动画: \`* { animation: none !important; transition: none !important; }\`
+- 等待特定状态
+
+### Q3: 动态内容差异
+**问题**: 时间戳、随机内容等动态数据
+**解决**:
+- Mock API 响应
+- 使用固定的测试数据
+- 在对比时 mask 动态区域
+
+### Q4: 第三方内容（广告、iframe）
+**问题**: 外部内容不可控
+**解决**:
+- Block 相关请求
+- 移除或隐藏相关元素
+- 在报告中标注排除区域
+
+---
+
+## 快速命令参考
+
+\`\`\`bash
+# 基本对比
+/ui-comparison baseline=https://old.example.com candidate=https://new.example.com
+
+# 指定视口
+/ui-comparison baseline=... candidate=... viewport=1920x1080
+
+# 全响应式测试
+/ui-comparison baseline=... candidate=... responsive=true
+
+# 输出详细报告
+/ui-comparison baseline=... candidate=... report=detailed
+
+# 忽略动态区域
+/ui-comparison baseline=... candidate=... ignore=".timestamp,.ad-banner"
+\`\`\`
+
+---
+
+## 输出物
+
+1. **差异截图** (diff image): 标红显示差异区域
+2. **对比报告** (JSON/Markdown): 详细的差异数据
+3. **修复建议**: 可执行的代码修复建议
+4. **通过/失败判定**: 基于阈值的自动化判定
+
+---
+
+## Anti-Patterns (NEVER DO)
+
+1. **不要只对比单一视口** - 必须测试多个断点
+2. **不要忽略交互状态** - hover/focus 等状态也需要对比
+3. **不要使用过低的 threshold** - 会产生大量假阳性
+4. **不要跳过报告输出** - 必须提供可追溯的对比记录
+5. **不要只看像素差异** - 需要结合布局和样式分析`,
+  agent: "ui-comparison",
+  subtask: true,
+}
+
 const gitMasterSkill: BuiltinSkill = {
   name: "git-master",
   description:
@@ -1199,5 +1585,5 @@ POTENTIAL ACTIONS:
 }
 
 export function createBuiltinSkills(): BuiltinSkill[] {
-  return [playwrightSkill, frontendUiUxSkill, gitMasterSkill]
+  return [playwrightSkill, frontendUiUxSkill, gitMasterSkill, uiComparisonSkill]
 }
